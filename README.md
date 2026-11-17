@@ -4,15 +4,16 @@ BilimNova — O'zbek tilidagi to'liq ishlaydigan onlayn ta'lim platformasi. Sayt
 
 ## Texnologiyalar
 
-- **Backend:** Python 3.11+ standart kutubxonasi (`http.server`, `sqlite3`, `hashlib`, `hmac`)
+- **Backend:** Python 3.11+ (`http.server`, `sqlite3`, `hashlib`, `hmac`, `requests`)
 - **Ma'lumotlar bazasi:** SQLite (WAL rejimi)
 - **Frontend:** Vanilla JavaScript (ES modules), hash-router SPA, o'z SVG ikonkalari
 - **Dizayn:** Zamonaviy CSS design system, light/dark mavzu, to'liq responsive
-- **Tashqi bog'liqliklar:** yo'q — npm yoki pip o'rnatish shart emas
+- **Tashqi bog'liqliklar:** Telegram xabarlari uchun `requests` (`pip` orqali o'rnatiladi); npm kerak emas
 
 ## Ishga tushirish
 
 ```bash
+python -m pip install -r requirements.txt
 python server.py
 ```
 
