@@ -25,6 +25,36 @@ set PORT=8080
 python server.py
 ```
 
+## Docker orqali ishga tushirish
+
+Docker va Docker Compose o'rnatilgan bo'lishi kerak. Loyiha papkasida quyidagilarni bajaring:
+
+```bash
+docker compose up --build -d
+```
+
+Ilova `http://localhost:8000` manzilida ishlaydi. Boshqa host portini ishlatish uchun `PORT` qiymatini belgilang, masalan:
+
+```bash
+PORT=8080 docker compose up --build -d
+```
+
+Windows PowerShell'da:
+
+```powershell
+$env:PORT=8080
+docker compose up --build -d
+```
+
+Loglarni ko'rish va konteynerni to'xtatish:
+
+```bash
+docker compose logs -f
+docker compose down
+```
+
+SQLite bazasi `bilimnova_data` nomli Docker volume'da saqlanadi va konteyner qayta yaratilganda ham saqlanib qoladi.
+
 ## Demo hisoblar
 
 | Rol | Email | Parol |

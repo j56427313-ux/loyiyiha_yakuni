@@ -11,6 +11,11 @@ from .auth import (auth_cookie, hash_password, load_user, logout_cookie,
                    public_user, require_user, verify_password)
 from .db import db
 from .http_utils import ApiError, Router, json_response
+from .telegram import (
+    notify_new_enrollment, notify_new_course, notify_course_published,
+    notify_course_unpublished, notify_new_review, notify_lesson_added,
+    notify_new_user, notify_error,
+)
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
@@ -225,6 +230,14 @@ def register(req):
         except sqlite3.IntegrityError:
             raise ApiError(409, "Bu email allaqachon ro'yxatdan o'tgan", "email")
         row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+
+    # Telegramga xabar yuborish (faqat instructor/admin uchun)
+    try:
+        if row["role"] in ("instructor", "admin"):
+            notify_new_user(name, email, row["role"])
+    except Exception:
+        pass
+
     return json_response(
         {"user": public_user(row), "message": "Ro'yxatdan muvaffaqiyatli o'tdingiz!"},
         status=201,
@@ -532,6 +545,13 @@ def enroll(req, course_id: str):
                 (first_lesson["id"], user["id"], cid),
             )
         progress = progress_for(conn, user["id"], cid)
+
+    # Telegramga xabar yuborish
+    try:
+        notify_new_enrollment(user["name"], row["title"], cid)
+    except Exception:
+        pass
+
     return json_response({
         "already": False,
         "message": "Kursga muvaffaqiyatli yozildingiz!",
@@ -713,7 +733,7 @@ def course_reviews(req, course_id: str):
     rating = parse_int(data.get("rating"), "Reyting", minimum=1, maximum=5)
     comment = clean_text(data, "comment", "Izoh", required=False, max_len=1000)
     with db() as conn:
-        get_course_row(conn, cid)
+        course = get_course_row(conn, cid)
         if not get_enrollment(conn, user["id"], cid):
             raise ApiError(403, "Sharh qoldirish uchun avval kursga yozilishingiz kerak")
         conn.execute(
@@ -729,6 +749,13 @@ def course_reviews(req, course_id: str):
                WHERE r.course_id = ? AND r.user_id = ?""",
             (cid, user["id"]),
         ).fetchone()
+
+    # Telegramga xabar yuborish
+    try:
+        notify_new_review(course["title"], rating, user["name"], comment, cid)
+    except Exception:
+        pass
+
     return json_response({"review": review_dict(row), "message": "Sharhingiz uchun rahmat!"}, status=201)
 
 
@@ -884,6 +911,16 @@ def admin_course_create(req):
             ),
         ).lastrowid
         row = get_course_row(conn, course_id)
+
+    # Telegramga xabar yuborish
+    try:
+        instructor_name = row["instructor"]["name"] if row.get("instructor") else None
+        notify_new_course(title, instructor_name, course_id)
+        if data.get("is_published", True):
+            notify_course_published(title, course_id)
+    except Exception:
+        pass
+
     return json_response({"course": course_dict(row), "message": "Kurs yaratildi"}, status=201)
 
 
@@ -949,6 +986,20 @@ def admin_course_update(req, course_id: str):
         values.append(cid)
         conn.execute(f"UPDATE courses SET {', '.join(fields)} WHERE id = ?", values)
         row = get_course_row(conn, cid)
+
+        # Telegramga xabar yuborish (faqat is_published o'zgarganda)
+        try:
+            if "is_published" in data:
+                new_published = bool(data["is_published"])
+                old_published = bool(existing["is_published"])
+                if new_published != old_published:
+                    if new_published:
+                        notify_course_published(row["title"], cid)
+                    else:
+                        notify_course_unpublished(row["title"], cid)
+        except Exception:
+            pass
+
     return json_response({"course": course_dict(row), "message": "Kurs yangilandi"})
 
 
@@ -998,6 +1049,14 @@ def admin_lessons(req, course_id: str):
             (cid, title, content, duration, video_url, position, 1 if data.get("is_preview") else 0),
         ).lastrowid
         row = conn.execute("SELECT * FROM lessons WHERE id = ?", (lesson_id,)).fetchone()
+
+    # Telegramga xabar yuborish
+    try:
+        course = get_course_row(conn, cid)
+        notify_lesson_added(course["title"], title, cid)
+    except Exception:
+        pass
+
     return json_response({
         "lesson": {
             "id": row["id"], "title": row["title"], "content": row["content"],
